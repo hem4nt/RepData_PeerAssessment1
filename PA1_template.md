@@ -9,49 +9,13 @@ output:
 ```r
 # Loading libraries
 library(dplyr)
-```
-
-```
-## Warning: package 'dplyr' was built under R version 3.4.2
-```
-
-```
-## 
-## Attaching package: 'dplyr'
-```
-
-```
-## The following objects are masked from 'package:stats':
-## 
-##     filter, lag
-```
-
-```
-## The following objects are masked from 'package:base':
-## 
-##     intersect, setdiff, setequal, union
-```
-
-```r
 library(ggplot2)
 library(lubridate)
+library(kableExtra)
 ```
 
-```
-## Warning: package 'lubridate' was built under R version 3.4.4
-```
+## Downloading the data if the zip file does not exist, extracting and reading the csv file.
 
-```
-## 
-## Attaching package: 'lubridate'
-```
-
-```
-## The following object is masked from 'package:base':
-## 
-##     date
-```
-#### Downloading the data if the zip file does not exist, extracting and reading the csv file.
 
 ```r
 setwd("~\\GitHub\\RepData_PeerAssessment1")
@@ -62,55 +26,125 @@ unzip("data.zip")
 activity<-read.csv("activity.csv",header = T) %>% as_tibble()
 # Converting date to correct format
 activity$date <-ymd(activity$date)
-# Filtering out NAs
-activity<-activity %>% filter(!is.na(steps))
 ```
-
-```
-## Warning: package 'bindrcpp' was built under R version 3.4.4
-```
-## What is mean total number of steps taken per day?
+## Imputing the missing values
 
 ```r
-daily_activity<-activity %>% group_by(date) %>% summarise(mean_steps=mean(steps))
-boxplot(daily_activity$mean_steps,xlab = "Total number of steps taken per day")
+nrow(activity)/nrow(activity %>% filter(is.na(activity$steps)))
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
+```
+## [1] 7.625
+```
 
 ```r
-hist(daily_activity$mean_steps,xlab = "Total number of steps taken per day")
+### There are about 7% missing values. We will fill those with median values
+activity$steps[which(is.na(activity$steps))]<-median(activity$steps,na.rm = T)
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-3-2.png)<!-- -->
+## Total number of steps per day is calculated
 
-```r
-"Mean of daily total steps is " %>% paste( mean(activity$steps,na.rm = T))
-```
-
-```
-## [1] "Mean of daily total steps is  37.3825995807128"
-```
-## What is the average daily activity pattern?
 
 ```r
-plot(daily_activity,type="l")
+daily_activity<-activity %>% group_by(date) %>% summarise(steps=sum(steps))
+head(daily_activity)
+```
+
+```
+## # A tibble: 6 x 2
+##   date       steps
+##   <date>     <dbl>
+## 1 2012-10-01     0
+## 2 2012-10-02   126
+## 3 2012-10-03 11352
+## 4 2012-10-04 12116
+## 5 2012-10-05 13294
+## 6 2012-10-06 15420
+```
+
+```r
+boxplot(daily_activity$steps,xlab = "Total number of steps taken per day")
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
-## Imputing missing values
+
+## Histogram of the total number of steps taken each day
 
 
 ```r
-# This has been done in a earlier step
-#activity<-activity %>% filter(!is.na(steps))
+hist(daily_activity$steps,xlab = "Total number of steps taken per day")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
+## Mean and median number of steps taken each day
+
+
+```r
+"Mean of daily total steps is " %>% paste( mean(daily_activity$steps,na.rm = T))
+```
+
+```
+## [1] "Mean of daily total steps is  9354.22950819672"
+```
+
+```r
+"Median of daily total steps is " %>% paste( median(daily_activity$steps,na.rm = T))
+```
+
+```
+## [1] "Median of daily total steps is  10395"
+```
+
+## Time series plot of the average number of steps taken
+
+
+```r
+plot(x=daily_activity$date,y=daily_activity$steps,type="l")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+
+## The 5-minute interval that contains the maximum number of steps
+
+
+```r
+activity %>% group_by(interval) %>% summarise(steps=mean(steps)) %>% top_n(1,wt=steps)
+```
+
+```
+## # A tibble: 1 x 2
+##   interval steps
+##      <int> <dbl>
+## 1      835  179.
 ```
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
+
 ```r
-plot(weekdays(daily_activity$date) %>% as.factor(),daily_activity$mean_steps)
-abline(h=mean(daily_activity$mean_steps),col="red")
+# Marking weekdays and weekends
+daily_activity<-daily_activity %>% mutate(wd=ifelse(weekdays(date)=="Sunday"|weekdays(date)=="Saturday","Weekends","Weekdays"))
+
+
+plot(daily_activity$wd %>% as.factor(),daily_activity$steps)
+abline(h=mean(daily_activity$steps),col="red")
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+![](PA1_template_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+
+## Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+
+```r
+temp<-activity %>% mutate(wd=ifelse(weekdays(date)=="Sunday"|weekdays(date)=="Saturday","Weekends","Weekdays")) %>% group_by(interval,wd,date) %>% summarise(steps=mean(steps))
+
+temp.wd<-temp %>% filter(wd=="Weekdays")
+temp.we<-temp %>% filter(wd=="Weekends")
+
+par(mfrow=c(2,2))
+plot(x=temp.wd$date,y=temp.wd$steps,type="p")
+plot(x=temp.we$date,y=temp.we$steps,type="p")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-10-1.png)<!-- -->

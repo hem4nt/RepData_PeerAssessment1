@@ -5,14 +5,17 @@ output:
     keep_md: true
 ---
 ## Loading and preprocessing the data
-```{r echo=TRUE}
+```{r eval=T,echo=T,warning=F,message=F}
 # Loading libraries
 library(dplyr)
 library(ggplot2)
 library(lubridate)
+library(kableExtra)
 ```
-#### Downloading the data if the zip file does not exist, extracting and reading the csv file.
-```{r eval=T,echo=T}
+
+## Downloading the data if the zip file does not exist, extracting and reading the csv file.
+
+```{r eval=T,echo=T,warning=F,message=F}
 setwd("~\\GitHub\\RepData_PeerAssessment1")
 if(!exists("data.zip")){
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip","data.zip")
@@ -21,33 +24,73 @@ unzip("data.zip")
 activity<-read.csv("activity.csv",header = T) %>% as_tibble()
 # Converting date to correct format
 activity$date <-ymd(activity$date)
-# Filtering out NAs
-activity<-activity %>% filter(!is.na(steps))
+```
+## Imputing the missing values
+```{r eval=T,echo=T,warning=F,message=F}
+nrow(activity)/nrow(activity %>% filter(is.na(activity$steps)))
+### There are about 7% missing values. We will fill those with median values
+activity$steps[which(is.na(activity$steps))]<-median(activity$steps,na.rm = T)
+```
+
+## Total number of steps per day is calculated
+
+```{r eval=T,echo=T,warning=F,message=F}
+daily_activity<-activity %>% group_by(date) %>% summarise(steps=sum(steps))
+head(daily_activity)
+
+boxplot(daily_activity$steps,xlab = "Total number of steps taken per day")
 
 ```
-## What is mean total number of steps taken per day?
-```{r eval=T,echo=T}
-daily_activity<-activity %>% group_by(date) %>% summarise(mean_steps=mean(steps))
-boxplot(daily_activity$mean_steps,xlab = "Total number of steps taken per day")
-hist(daily_activity$mean_steps,xlab = "Total number of steps taken per day")
-"Mean of daily total steps is " %>% paste( mean(activity$steps,na.rm = T))
 
+## Histogram of the total number of steps taken each day
+
+```{r eval=T,echo=T,warning=F,message=F}
+
+hist(daily_activity$steps,xlab = "Total number of steps taken per day")
 ```
-## What is the average daily activity pattern?
-```{r eval=T,echo=T}
-plot(daily_activity,type="l")
 
+## Mean and median number of steps taken each day
+
+```{r eval=T,echo=T,warning=F,message=F}
+"Mean of daily total steps is " %>% paste( mean(daily_activity$steps,na.rm = T))
+"Median of daily total steps is " %>% paste( median(daily_activity$steps,na.rm = T))
 ```
-## Imputing missing values
 
-```{r eval=T,echo=T}
-# This has been done in a earlier step
-#activity<-activity %>% filter(!is.na(steps))
+## Time series plot of the average number of steps taken
+
+```{r eval=T,echo=T,warning=F,message=F}
+plot(x=daily_activity$date,y=daily_activity$steps,type="l")
+```
+
+## The 5-minute interval that contains the maximum number of steps
+
+```{r eval=T,echo=T,warning=F,message=F}
+activity %>% group_by(interval) %>% summarise(steps=mean(steps)) %>% top_n(1,wt=steps)
 ```
 
 ## Are there differences in activity patterns between weekdays and weekends?
-```{r eval=T,echo=T}
 
-plot(weekdays(daily_activity$date) %>% as.factor(),daily_activity$mean_steps)
-abline(h=mean(daily_activity$mean_steps),col="red")
+```{r eval=T,echo=T,warning=F,message=F}
+# Marking weekdays and weekends
+daily_activity<-daily_activity %>% mutate(wd=ifelse(weekdays(date)=="Sunday"|weekdays(date)=="Saturday","Weekends","Weekdays"))
+
+
+plot(daily_activity$wd %>% as.factor(),daily_activity$steps)
+abline(h=mean(daily_activity$steps),col="red")
+
+
+```
+
+## Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r eval=T,echo=T,warning=F,message=F}
+temp<-activity %>% mutate(wd=ifelse(weekdays(date)=="Sunday"|weekdays(date)=="Saturday","Weekends","Weekdays")) %>% group_by(interval,wd,date) %>% summarise(steps=mean(steps))
+
+temp.wd<-temp %>% filter(wd=="Weekdays")
+temp.we<-temp %>% filter(wd=="Weekends")
+
+par(mfrow=c(2,2))
+plot(x=temp.wd$date,y=temp.wd$steps,type="p")
+plot(x=temp.we$date,y=temp.we$steps,type="p")
+
 ```
